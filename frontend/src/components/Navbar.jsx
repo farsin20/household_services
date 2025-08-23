@@ -1,10 +1,10 @@
 import React, { useContext } from "react";
 import { AuthContext } from "../Providers/AuthProvider"; // Adjust path if different
-import { Link } from "react-router"; 
+import { Link } from "react-router";
 
 const Navbar = () => {
-  const { user, logOut,role } = useContext(AuthContext);
-  console.log("User in Navbar:", role);
+  const { user, logOut, role } = useContext(AuthContext);
+  console.log("User role in Navbar:", role);
 
   const handleLogout = async () => {
     try {
@@ -23,13 +23,30 @@ const Navbar = () => {
 
         {user && user.email ? (
           <>
-            {role === "Admin" ? (
-              <Link to="/admin_dashboard" className="hover:underline font-bold hover:text-yellow-300">
+            {role === "Admin" && (
+              <Link
+                to="/admin_dashboard"
+                className="hover:underline font-bold hover:text-yellow-300"
+              >
                 Admin Dashboard
               </Link>
-            ) : (
-              <Link to="/customer_dashboard" className="hover:underline font-bold hover:text-green-300">
+            )}
+
+            {role === "Customer" && (
+              <Link
+                to="/customer_dashboard"
+                className="hover:underline font-bold hover:text-green-300"
+              >
                 Customer Dashboard
+              </Link>
+            )}
+
+            {role === "Worker" && (
+              <Link
+                to="/worker_dashboard"
+                className="hover:underline font-bold hover:text-blue-300"
+              >
+                Worker Dashboard
               </Link>
             )}
 
@@ -42,8 +59,18 @@ const Navbar = () => {
           </>
         ) : (
           <>
-            <Link to="/login" className="hover:underline font-bold hover:text-blue-700">Login</Link>
-            <Link to="/register" className="hover:underline font-bold hover:text-red-700">Register</Link>
+            <Link
+              to="/login"
+              className="hover:underline font-bold hover:text-blue-700"
+            >
+              Login
+            </Link>
+            <Link
+              to="/register"
+              className="hover:underline font-bold hover:text-red-700"
+            >
+              Register
+            </Link>
           </>
         )}
       </div>
