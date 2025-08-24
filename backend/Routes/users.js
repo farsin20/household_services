@@ -8,7 +8,7 @@ router.post("/", async (req, res) => {
     const db = getDB();
     const usersCollection = db.collection("users");
     const newUser = req.body;
-
+    console.log("Received new user data:", newUser);
     const result = await usersCollection.insertOne(newUser);
 
     res.status(201).json({
