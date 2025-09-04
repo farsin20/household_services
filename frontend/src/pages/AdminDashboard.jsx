@@ -3,23 +3,69 @@ import { useEffect, useState } from "react";
 
 const AdminDashboard = () => {
   const [requests, setRequests] = useState([]);
+  const [workers, setWorkers] = useState([]);
+  const [selectedRequest, setSelectedRequest] = useState("");
+  const [selectedWorker, setSelectedWorker] = useState("");
+
+  const handleAssignWorker = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`http://localhost:5000/api/requests/assign`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestId: selectedRequest,
+          workerEmail: selectedWorker
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        // Refresh requests after successful assignment
+        const requestsRes = await fetch("http://localhost:5000/api/requests");
+        const requestsData = await requestsRes.json();
+        if (requestsData.success) {
+          setRequests(requestsData.requests);
+        }
+        // Reset selections
+        setSelectedRequest("");
+        setSelectedWorker("");
+        alert("Worker assigned successfully!");
+      } else {
+        alert("Failed to assign worker: " + data.error);
+      }
+    } catch (error) {
+      console.error("Error assigning worker:", error);
+      alert("Error assigning worker. Please try again.");
+    }
+  };
 
   useEffect(() => {
-    const fetchRequests = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/requests");
-        const data = await res.json();
-        if (data.success) {
-          setRequests(data.requests);
-        } else {
-          console.error("Failed to load requests:", data.error);
+        // Fetch requests
+        const requestsRes = await fetch("http://localhost:5000/api/requests");
+        const requestsData = await requestsRes.json();
+        console.log("Fetched requests:", requestsData);
+        if (requestsData.success) {
+          setRequests(requestsData.requests);
+        }
+
+        // Fetch workers
+        const workersRes = await fetch("http://localhost:5000/api/users/workers");
+        const workersData = await workersRes.json();
+        console.log("Fetched workers data:", workersData);
+        if (workersData.success) {
+          setWorkers(workersData.workers);
         }
       } catch (error) {
-        console.error("Error fetching requests:", error);
+        console.error("Error fetching data:", error);
       }
     };
 
-    fetchRequests();
+    fetchData();
   }, []);
   return (
     <div className="min-h-screen bg-gray-700 p-6">
@@ -47,19 +93,39 @@ const AdminDashboard = () => {
         {/* Assign Worker Section */}
         <div className="bg-transparent rounded-xl shadow-xl p-5 text-emerald-400 ">
           <h2 className="text-xl font-semibold mb-4">Assign Workers</h2>
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleAssignWorker}>
             <div>
               <label className="block text-sm font-medium">Select Request</label>
-              <select className="w-full border p-2 rounded hover:text-black">
-                <option className="">John Doe - Plumbing</option>
-                <option className="">Jane Smith - Cleaning</option>
+              <select 
+                className="w-full border p-2 rounded hover:text-black"
+                value={selectedRequest}
+                onChange={(e) => setSelectedRequest(e.target.value)}
+                required
+              >
+                <option value="">Select a request</option>
+                {requests
+                  .filter(req => req.status === "pending")
+                  .map((req) => (
+                    <option key={req._id} value={req._id}>
+                      {req.name} - {req.serviceType}
+                    </option>
+                  ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium ">Select Worker</label>
-              <select className="w-full border p-2 rounded hover:text-black">
-                <option>Worker A</option>
-                <option>Worker B</option>
+              <label className="block text-sm font-medium">Select Worker</label>
+              <select 
+                className="w-full border p-2 rounded hover:text-black"
+                value={selectedWorker}
+                onChange={(e) => setSelectedWorker(e.target.value)}
+                required
+              >
+                <option value="">Select a worker</option>
+                {workers.map((worker) => (
+                  <option key={worker._id} value={worker.email}>
+                    {worker.fullName} ({worker.email})
+                  </option>
+                ))}
               </select>
             </div>
             <button

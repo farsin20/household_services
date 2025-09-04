@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import useAuth from "../Hooks/useAuth";
 import { useNavigate } from "react-router";
 import { toast } from "react-hot-toast";
@@ -13,9 +13,21 @@ const Register = () => {
     address: "",
     password: "",
     confirmPassword: "",
-    userType: "Customer",
+    userType: "customer",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Suppress untrusted events from extensions
+  useEffect(() => {
+    const handleEvent = (e) => {
+      if (e.isTrusted === false) {
+        console.log("Suppressing untrusted event:", e.type);
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener("message", handleEvent);
+    return () => window.removeEventListener("message", handleEvent);
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -48,97 +60,108 @@ const Register = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("1. Form submission started with data:", formData); // Log form data on submission
+    console.log("1. Form submission started with data:", formData);
     setIsSubmitting(true);
     const toastId = toast.loading("Registering..");
-    console.log("2. Toast loading displayed, toastId:", toastId); // Confirm toast is triggered
+    console.log("2. Toast loading displayed, toastId:", toastId);
 
-    const validationError = validateForm();
-    if (validationError) {
-      console.log("3. Validation failed:", validationError); // Log validation error
-      toast.error(validationError, { id: toastId });
-      setIsSubmitting(false);
-      console.log("4. Submission stopped due to validation error");
-      return;
-    }
-    console.log("3. Validation passed, proceeding to Firebase"); // Confirm validation success
-
-    console.log("4. Calling createUser with:", formData.email, formData.password); // Log Firebase attempt
-    createUser(formData.email, formData.password)
-      .then((userCredential) => {
-        console.log("5. Firebase user created, UID:", userCredential.user.uid); // Log successful Firebase auth
-        const savedUser = {
-          fullName: formData.fullName,
-          email: formData.email,
-          phone: formData.phone,
-          address: formData.address,
-          userType: formData.userType,
-          uid: userCredential.user.uid,
-        };
-        console.log("6. Prepared API payload:", savedUser); // Log data sent to API
-        console.log("7. API URL:", process.env.REACT_APP_API_URL || "http://localhost:5000"); // Log API URL
-
-        fetch(`${process.env.REACT_APP_API_URL || "http://localhost:5000"}/api/users`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(savedUser),
-        })
-          .then((res) => {
-            console.log("8. API response status:", res.status); // Log API response status
-            if (!res.ok) {
-              throw new Error(`HTTP error! Status: ${res.status}`);
-            }
-            return res.json();
-          })
-          .then((data) => {
-            console.log("9. API response data:", data); // Log API response body
-            toast.success("Registration successful", { id: toastId });
-            console.log("10. Toast success displayed, resetting form"); // Confirm toast success
-            setFormData({
-              fullName: "",
-              email: "",
-              phone: "",
-              address: "",
-              password: "",
-              confirmPassword: "",
-              userType: "Customer",
-            });
-            console.log("11. Form reset, attempting logout"); // Log form reset and logout attempt
-            logOut()
-              .then(() => {
-                console.log("12. Logout successful, navigating to /login"); // Log successful logout
-                navigate("/login");
-              })
-              .catch((error) => {
-                console.error("13. Logout error:", error.message); // Log logout error
-                toast.error("Logout failed", { id: toastId });
-              });
-          })
-          .catch((error) => {
-            console.error("14. API error:", error.message); // Log API error
-            toast.error("Failed to save user data", { id: toastId });
-          })
-          .finally(() => {
-            console.log("15. Submission complete, isSubmitting set to false"); // Log end of process
-            setIsSubmitting(false);
-          });
-      })
-      .catch((error) => {
-        console.error("16. Firebase error:", error.code, error.message); // Log Firebase error
-        let errorMessage = "Firebase registration failed";
-        if (error.code === "auth/email-already-in-use") {
-          errorMessage = "This email is already registered";
-        } else if (error.code === "auth/invalid-email") {
-          errorMessage = "Invalid email format";
-        } else if (error.code === "auth/weak-password") {
-          errorMessage = "Password is too weak";
-        }
-        toast.error(errorMessage, { id: toastId });
+    try {
+      const validationError = validateForm();
+      if (validationError) {
+        console.log("3. Validation failed:", validationError);
+        toast.error(validationError, { id: toastId });
         setIsSubmitting(false);
-        console.log("17. Firebase error handled, submission stopped"); // Log error handling
-      });
+        console.log("4. Submission stopped due to validation error");
+        return;
+      }
+      console.log("3. Validation passed, proceeding to Firebase");
+
+      console.log("4. Calling createUser with:", formData.email, formData.password);
+      createUser(formData.email, formData.password)
+        .then((userCredential) => {
+          console.log("5. Firebase user created, UID:", userCredential.user.uid);
+          const savedUser = {
+            fullName: formData.fullName,
+            email: formData.email,
+            phone: formData.phone,
+            address: formData.address,
+            userType: formData.userType,
+            uid: userCredential.user.uid,
+          };
+          console.log("6. Prepared API payload:", savedUser);
+          const apiUrl = "http://localhost:5000";
+          console.log("7. API URL:", apiUrl);
+
+          return fetch(`${apiUrl}/api/users`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(savedUser),
+          })
+            .then((res) => {
+              console.log("8. API response status:", res.status);
+              if (!res.ok) {
+                throw new Error(`HTTP error! Status: ${res.status}`);
+              }
+              return res.json();
+            })
+            .then((data) => {
+              console.log("9. API response data:", data);
+              toast.success("Registration successful", { id: toastId });
+              console.log("10. Toast success displayed, resetting form");
+              setFormData({
+                fullName: "",
+                email: "",
+                phone: "",
+                address: "",
+                password: "",
+                confirmPassword: "",
+                userType: "Customer",
+              });
+              console.log("11. Form reset, attempting logout");
+              return logOut();
+            })
+            .then(() => {
+              console.log("12. Logout successful, attempting navigation to /login");
+              setTimeout(() => {
+                console.log("13. Navigating to /login");
+                navigate("/login", { replace: true });
+              }, 100);
+            })
+            .catch((error) => {
+              console.error("14. API or logout error:", error.message);
+              toast.error(error.message.includes("HTTP error") ? "Failed to save user data" : "Logout failed", { id: toastId });
+              throw error;
+            });
+        })
+        .catch((error) => {
+          console.error("15. Firebase error:", error.code, error.message);
+          let errorMessage = "Firebase registration failed";
+          if (error.code === "auth/email-already-in-use") {
+            errorMessage = "This email is already registered";
+          } else if (error.code === "auth/invalid-email") {
+            errorMessage = "Invalid email format";
+          } else if (error.code === "auth/weak-password") {
+            errorMessage = "Password is too weak";
+          }
+          toast.error(errorMessage, { id: toastId });
+          console.log("16. Firebase error handled, submission stopped");
+          throw error;
+        })
+        .catch((error) => {
+          console.error("17. Unexpected error in handleSubmit:", error.message);
+          toast.error("An unexpected error occurred", { id: toastId });
+        })
+        .finally(() => {
+          console.log("18. Submission complete, isSubmitting set to false");
+          setIsSubmitting(false);
+        });
+    } catch (error) {
+      console.error("19. Caught unexpected error:", error.message);
+      toast.error("An unexpected error occurred", { id: toastId });
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -249,9 +272,9 @@ const Register = () => {
               onChange={handleChange}
               className="w-full text-black px-4 py-2 border rounded-md focus:ring focus:ring-blue-400"
             >
-              <option value="Customer">Customer</option>
-              <option value="Admin">Admin</option>
-              <option value="Worker">Worker</option>
+              <option value="customer">Customer</option>
+              <option value="admin">Admin</option>
+              <option value="worker">Worker</option>
             </select>
           </div>
 

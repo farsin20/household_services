@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { AuthContext } from "../Providers/AuthProvider";
+import { useNavigate } from "react-router-dom";
 
 const WorkerDashboard = () => {
   const [activeTab, setActiveTab] = useState("jobs");
-  const { user } = React.useContext(AuthContext);
+  const { user, role } = React.useContext(AuthContext);
+  const navigate = useNavigate();
   const workerEmail = user?.email;
+
+  useEffect(() => {
+    if (!user || role !== "Worker") {
+      navigate("/login");
+    }
+  }, [user, role, navigate]);
 
   return (
     <div className="min-h-screen bg-gray-700 p-6">
@@ -58,7 +66,7 @@ const MyJobs = ({ workerEmail }) => {
     const fetchJobs = async () => {
       try {
         const res = await fetch(
-          `http://localhost:5000/api/worker/jobs/${workerEmail}`
+          `http://localhost:5000/api/requests/worker/${workerEmail}`
         );
         const data = await res.json();
         if (data.success) {
@@ -104,7 +112,7 @@ const MarkComplete = ({ workerEmail }) => {
     e.preventDefault();
     try {
       const res = await fetch(
-        `http://localhost:5000/api/worker/complete/${jobId}`,
+        `http://localhost:5000/api/requests/complete/${jobId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -156,7 +164,7 @@ const PaymentHistory = ({ workerEmail }) => {
     const fetchPayments = async () => {
       try {
         const res = await fetch(
-          `http://localhost:5000/api/worker/payments/${workerEmail}`
+          `http://localhost:5000/api/requests/payments/${workerEmail}`
         );
         const data = await res.json();
         if (data.success) {
@@ -202,7 +210,7 @@ const WorkerReviews = ({ workerEmail }) => {
     const fetchReviews = async () => {
       try {
         const res = await fetch(
-          `http://localhost:5000/api/worker/reviews/${workerEmail}`
+          `http://localhost:5000/api/requests/reviews/${workerEmail}`
         );
         const data = await res.json();
         if (data.success) {

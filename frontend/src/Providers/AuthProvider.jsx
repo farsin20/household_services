@@ -48,6 +48,20 @@ const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      
+      if (currentUser?.email) {
+        try {
+          const response = await fetch(`http://localhost:5000/api/users/role/${currentUser.email}`);
+          const data = await response.json();
+          if (data.success) {
+            setRole(data.role);
+          }
+        } catch (error) {
+          console.error("Error fetching user role:", error);
+        }
+      } else {
+        setRole(null);
+      }
       setLoading(false);
 
       if (currentUser) {

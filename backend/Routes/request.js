@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const { getDB } = require("../db");
+const { ObjectId } = require('mongodb');
 
 // POST /api/requests - Save a new service request
 router.post("/", async (req, res) => {
@@ -48,15 +49,141 @@ router.get("/", async (req, res) => {
     const requests = await requestsCollection.find({}).toArray();
 
     console.log(`✅ Found ${requests.length} requests`);
-    res.status(200).json({
-      success: true,
-      requests,
+
+    res.json({ success: true, requests });
+  } catch (error) {
+    console.error("❌ Error fetching requests:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch requests" });
+  }
+});
+
+// GET /api/requests/worker/:email - Fetch jobs for a specific worker
+// Get worker's jobs
+router.get("/worker/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    console.log(`📩 Incoming GET /api/requests/worker/${email}`);
+
+    const db = getDB();
+    const requestsCollection = db.collection("serviceRequests");
+
+    console.log("🔍 Fetching worker's jobs...");
+    const jobs = await requestsCollection.find({ 
+      assignedWorker: email,
+      status: { $in: ["assigned", "in-progress"] }
+    }).toArray();
+
+    console.log(`✅ Found ${jobs.length} jobs for worker ${email}`);
+    res.json({ success: true, jobs });
+  } catch (error) {
+    console.error("❌ Error fetching worker jobs:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch worker jobs" });
+  }
+});
+
+// Mark job as complete
+router.put("/complete/:jobId", async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { workerEmail } = req.body;
+
+    const db = getDB();
+    const requestsCollection = db.collection("serviceRequests");
+
+    const result = await requestsCollection.updateOne(
+      { _id: new ObjectId(jobId), assignedWorker: workerEmail },
+      { $set: { status: "completed", completedAt: new Date() } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ success: false, error: "Job not found or not assigned to this worker" });
+    }
+
+    res.json({ success: true, message: "Job marked as completed" });
+  } catch (error) {
+    console.error("Error completing job:", error);
+    res.status(500).json({ success: false, error: "Failed to complete job" });
+  }
+});
+
+// Get worker's payment history
+router.get("/payments/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const db = getDB();
+    const paymentsCollection = db.collection("payments");
+
+    const payments = await paymentsCollection.find({ 
+      workerEmail: email 
+    }).toArray();
+
+    res.json({ success: true, payments });
+  } catch (error) {
+    console.error("Error fetching payments:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch payment history" });
+  }
+});
+
+// Get worker's reviews
+router.get("/reviews/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const db = getDB();
+    const reviewsCollection = db.collection("reviews");
+
+    const reviews = await reviewsCollection.find({ 
+      workerEmail: email 
+    }).toArray();
+
+    res.json({ success: true, reviews });
+  } catch (error) {
+    console.error("Error fetching reviews:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch reviews" });
+  }
+});
+
+// Assign worker to request
+router.put("/assign", async (req, res) => {
+  try {
+    const { requestId, workerEmail } = req.body;
+    
+    if (!requestId || !workerEmail) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Request ID and worker email are required" 
+      });
+    }
+
+    const db = getDB();
+    const requestsCollection = db.collection("serviceRequests");
+    
+    const result = await requestsCollection.updateOne(
+      { _id: new ObjectId(requestId) },
+      { 
+        $set: { 
+          assignedWorker: workerEmail,
+          status: "assigned",
+          assignedAt: new Date()
+        } 
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: "Request not found" 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Worker assigned successfully" 
     });
   } catch (error) {
-    console.error("❌ Error fetching service requests:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch service requests",
+    console.error("Error assigning worker:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: "Failed to assign worker" 
     });
   }
 });

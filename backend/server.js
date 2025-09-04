@@ -1,6 +1,7 @@
 // server.js
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 require("dotenv").config();
 
 const { connectDB } = require("./db");
@@ -16,6 +17,19 @@ app.use(express.json());
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/requests", requestRoutes);
+
+// Serve static files in production
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+  
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
+  });
+} else {
+  app.get("/", (req, res) => {
+    res.send("API is running...");
+  });
+}
 
 // Start server only after DB is connected
 connectDB().then(() => {

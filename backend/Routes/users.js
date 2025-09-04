@@ -7,7 +7,13 @@ router.post("/", async (req, res) => {
   try {
     const db = getDB();
     const usersCollection = db.collection("users");
-    const newUser = req.body;
+    const userRole = (req.body.role || req.body.userType || "customer").toLowerCase();
+    const newUser = {
+      ...req.body,
+      role: userRole,
+      userType: userRole // Set both fields to be consistent
+    };
+    console.log("Creating new user with data:", newUser);
     console.log("Received new user data:", newUser);
     const result = await usersCollection.insertOne(newUser);
 
@@ -19,6 +25,36 @@ router.post("/", async (req, res) => {
   } catch (error) {
     console.error("Error saving user:", error);
     res.status(500).json({ success: false, error: "Failed to save user" });
+  }
+});
+
+// Get all workers
+router.get("/workers", async (req, res) => {
+  try {
+    const db = getDB();
+    const usersCollection = db.collection("users");
+    
+    console.log("Fetching workers from database...");
+    // First, let's see what roles exist in the database
+    const allUsers = await usersCollection.find({}).toArray();
+    console.log("All users in database:", allUsers.map(user => ({
+      email: user.email,
+      role: user.role,
+      userType: user.userType
+    })));
+    
+    // Now try to find workers with either role or userType
+    const workers = await usersCollection.find({
+      $or: [
+        { role: { $regex: new RegExp("^worker$", "i") } },
+        { userType: { $regex: new RegExp("^worker$", "i") } }
+      ]
+    }).toArray();
+    console.log("Found workers:", workers.length, workers);
+    res.json({ success: true, workers });
+  } catch (error) {
+    console.error("Error fetching workers:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch workers" });
   }
 });
 

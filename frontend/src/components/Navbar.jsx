@@ -1,6 +1,6 @@
 import React, { useContext } from "react";
-import { AuthContext } from "../Providers/AuthProvider"; // Adjust path if different
-import { Link } from "react-router";
+import { AuthContext } from "../Providers/AuthProvider";
+import { Link } from "react-router-dom";
 
 const Navbar = () => {
   const { user, logOut, role } = useContext(AuthContext);
@@ -25,7 +25,7 @@ const Navbar = () => {
           <>
             {role === "Admin" && (
               <Link
-                to="/admin_dashboard"
+                to="/admin-dashboard"
                 className="hover:underline font-bold hover:text-yellow-300"
               >
                 Admin Dashboard
@@ -34,7 +34,7 @@ const Navbar = () => {
 
             {role === "Customer" && (
               <Link
-                to="/customer_dashboard"
+                to="/customer-dashboard"
                 className="hover:underline font-bold hover:text-green-300"
               >
                 Customer Dashboard
@@ -43,7 +43,7 @@ const Navbar = () => {
 
             {role === "Worker" && (
               <Link
-                to="/worker_dashboard"
+                to="/worker-dashboard"
                 className="hover:underline font-bold hover:text-blue-300"
               >
                 Worker Dashboard
