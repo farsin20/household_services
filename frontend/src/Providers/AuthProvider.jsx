@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
@@ -10,92 +9,117 @@ import {
 import { createContext, useEffect, useState } from "react";
 import { auth } from "../Firebase/firebase.config";
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const AuthContext = createContext(null);
+// Create and export the context
+const AuthContext = createContext(null);
+export { AuthContext };  // Named export
 
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null); // ✅ Role state
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const googleProvider = new GoogleAuthProvider();
 
-  // google login
+  // Google login
   const googleLogin = () => {
     setLoading(true);
     return signInWithPopup(auth, googleProvider);
   };
 
-  // sign up
+  // Sign up
   const createUser = (email, password) => {
     setLoading(true);
     return createUserWithEmailAndPassword(auth, email, password);
   };
 
-  // signIn user
+  // Sign in
   const signIn = (email, password) => {
     setLoading(true);
     return signInWithEmailAndPassword(auth, email, password);
   };
 
-  // logOut
+  // Logout
   const logOut = () => {
     setLoading(true);
-    setRole(null); // clear role on logout
+    setRole(null);
     return signOut(auth);
   };
 
-  // using observer
+  // Auth state observer
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    setLoading(true);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (!currentUser) {
+        setUser(null);
+        setRole(null);
+        setLoading(false);
+        return;
+      }
+
       setUser(currentUser);
       
-      if (currentUser?.email) {
-        try {
-          const response = await fetch(`http://localhost:5000/api/users/role/${currentUser.email}`);
-          const data = await response.json();
-          if (data.success) {
-            setRole(data.role);
+      // Fetch role from backend
+      fetch(`http://localhost:5000/api/users/role?email=${encodeURIComponent(currentUser.email)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
           }
-        } catch (error) {
-          console.error("Error fetching user role:", error);
-        }
-      } else {
-        setRole(null);
-      }
-      setLoading(false);
-
-      if (currentUser) {
-        const email = currentUser.email;
-
-        // 🔁 Example: Fetch role from your backend (replace with real call)
-        try {
-          const res = await fetch(`http://localhost:5000/api/users/role?email=${email}`);
-          const data = await res.json();
-          setRole(data.role); // assume response like { role: "admin" }
-        } catch (error) {
-          console.error("Failed to fetch role:", error);
-        }
-      }
+          return response.json();
+        })
+        .then(data => {
+          if (data.success) {
+            setRole(data.role.toLowerCase());
+          } else {
+            console.error('Failed to get user role:', data.error);
+            setRole('customer');
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching user role:', error);
+          setRole('customer');
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     });
 
-    return () => unsubscribe();
+    // Cleanup subscription on unmount
+
+    // Cleanup function
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
-  const authentications = {
-    googleLogin,
-    createUser,
-    signIn,
-    logOut,
+  const authInfo = {
     user,
     role,
     loading,
+    createUser,
+    signIn,
+    googleLogin,
+    logOut,
   };
 
   return (
-    <AuthContext.Provider value={authentications}>
-      {children}
+    <AuthContext.Provider value={authInfo}>
+      {loading ? (
+        <div className="min-h-screen flex items-center justify-center bg-gray-700">
+          <div className="text-emerald-400 text-xl">Loading...</div>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 };
 
+// Default export for the provider component
 export default AuthProvider;

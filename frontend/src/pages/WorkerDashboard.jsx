@@ -9,7 +9,7 @@ const WorkerDashboard = () => {
   const workerEmail = user?.email;
 
   useEffect(() => {
-    if (!user || role !== "Worker") {
+    if (!user || role !== "worker") {
       navigate("/login");
     }
   }, [user, role, navigate]);

@@ -34,6 +34,21 @@ const Register = () => {
   };
 
   const validateForm = () => {
+    if (!formData.fullName.trim()) {
+      return "Full name is required";
+    }
+    if (!formData.email.trim()) {
+      return "Email is required";
+    }
+    if (!formData.phone.trim()) {
+      return "Phone number is required";
+    }
+    if (!formData.address.trim()) {
+      return "Address is required";
+    }
+    if (formData.password !== formData.confirmPassword) {
+      return "Passwords do not match";
+    }
     if (formData.password.length < 6) {
       return "Password must be at least 6 characters";
     }
@@ -60,10 +75,14 @@ const Register = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    if (isSubmitting) {
+      return;
+    }
+
     console.log("1. Form submission started with data:", formData);
     setIsSubmitting(true);
     const toastId = toast.loading("Registering..");
-    console.log("2. Toast loading displayed, toastId:", toastId);
 
     try {
       const validationError = validateForm();
@@ -71,13 +90,21 @@ const Register = () => {
         console.log("3. Validation failed:", validationError);
         toast.error(validationError, { id: toastId });
         setIsSubmitting(false);
-        console.log("4. Submission stopped due to validation error");
         return;
       }
-      console.log("3. Validation passed, proceeding to Firebase");
 
-      console.log("4. Calling createUser with:", formData.email, formData.password);
+      console.log("3. Validation passed, proceeding to Firebase");
       createUser(formData.email, formData.password)
+        .catch((error) => {
+          console.error("Firebase error:", error);
+          if (error.code === "auth/email-already-in-use") {
+            toast.error("This email is already registered. Please login or use a different email.", { id: toastId });
+          } else {
+            toast.error(error.message, { id: toastId });
+          }
+          setIsSubmitting(false);
+          throw error;
+        })
         .then((userCredential) => {
           console.log("5. Firebase user created, UID:", userCredential.user.uid);
           const savedUser = {
@@ -131,35 +158,51 @@ const Register = () => {
             })
             .catch((error) => {
               console.error("14. API or logout error:", error.message);
-              toast.error(error.message.includes("HTTP error") ? "Failed to save user data" : "Logout failed", { id: toastId });
-              throw error;
+              const errorMessage = error.message.includes("HTTP error") 
+                ? "Failed to save user data. Please try again." 
+                : "Failed to complete registration. Please try logging in.";
+              toast.error(errorMessage, { id: toastId });
+              setIsSubmitting(false);
+              // Don't throw the error, return instead to stop the chain
+              return;
             });
         })
         .catch((error) => {
           console.error("15. Firebase error:", error.code, error.message);
-          let errorMessage = "Firebase registration failed";
-          if (error.code === "auth/email-already-in-use") {
-            errorMessage = "This email is already registered";
-          } else if (error.code === "auth/invalid-email") {
-            errorMessage = "Invalid email format";
-          } else if (error.code === "auth/weak-password") {
-            errorMessage = "Password is too weak";
+          let errorMessage;
+          
+          switch (error.code) {
+            case "auth/email-already-in-use":
+              errorMessage = "This email is already registered. Please login or use a different email.";
+              break;
+            case "auth/invalid-email":
+              errorMessage = "Please enter a valid email address.";
+              break;
+            case "auth/weak-password":
+              errorMessage = "Password is too weak. It must be at least 6 characters long.";
+              break;
+            default:
+              errorMessage = "Registration failed. Please try again.";
           }
+          
           toast.error(errorMessage, { id: toastId });
-          console.log("16. Firebase error handled, submission stopped");
-          throw error;
+          console.log("16. Firebase error handled");
+          // Don't throw the error, just handle it here
+          return; // Stop the promise chain
         })
         .catch((error) => {
-          console.error("17. Unexpected error in handleSubmit:", error.message);
-          toast.error("An unexpected error occurred", { id: toastId });
+          // This catch block will handle any other errors in the chain
+          console.error("17. API or other error:", error.message);
+          toast.error("An unexpected error occurred. Please try again.", { id: toastId });
         })
         .finally(() => {
-          console.log("18. Submission complete, isSubmitting set to false");
+          console.log("18. Submission complete");
           setIsSubmitting(false);
         });
     } catch (error) {
-      console.error("19. Caught unexpected error:", error.message);
-      toast.error("An unexpected error occurred", { id: toastId });
+      // This catch block handles any synchronous errors
+      console.error("19. Synchronous error:", error.message);
+      toast.error("An unexpected error occurred. Please try again.", { id: toastId });
       setIsSubmitting(false);
     }
   };

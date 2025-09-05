@@ -4,6 +4,45 @@ const router = express.Router();
 const { getDB } = require("../db");
 const { ObjectId } = require('mongodb');
 
+// GET /api/requests/:email - Get customer's requests
+router.get("/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    console.log(`Fetching requests for customer: ${email}`);
+    
+    const db = getDB();
+    const requestsCollection = db.collection("serviceRequests");
+    
+    const requests = await requestsCollection.find({
+      customerEmail: email
+    }).sort({ createdAt: -1 }).toArray();
+    
+    res.json({ success: true, requests });
+  } catch (error) {
+    console.error("Error fetching customer requests:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch requests" });
+  }
+});
+
+// GET /api/requests/completed/:email - Get customer's completed requests
+router.get("/completed/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const db = getDB();
+    const requestsCollection = db.collection("serviceRequests");
+    
+    const requests = await requestsCollection.find({
+      customerEmail: email,
+      status: "completed"
+    }).sort({ completedAt: -1 }).toArray();
+    
+    res.json({ success: true, requests });
+  } catch (error) {
+    console.error("Error fetching completed requests:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch completed requests" });
+  }
+});
+
 // POST /api/requests - Save a new service request
 router.post("/", async (req, res) => {
   try {

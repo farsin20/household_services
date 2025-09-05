@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router";
 import useAuth from "../Hooks/useAuth";
@@ -6,33 +6,49 @@ import useAuth from "../Hooks/useAuth";
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { signIn } = useAuth();
+  const { signIn, role } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    if (role) {
+      const path = location?.state?.from || getDashboardPath(role);
+      navigate(path);
+    }
+  }, [role, navigate, location]);
+
+  const getDashboardPath = (userRole) => {
+    switch (userRole) {
+      case 'admin':
+        return '/admin-dashboard';
+      case 'customer':
+        return '/customer-dashboard';
+      case 'worker':
+        return '/worker-dashboard';
+      default:
+        return '/';
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const toastId = toast.loading("Logging In..");
-    //   // Add login logic here
-    // signIn
-    signIn(email, password)
-      .then(() => {
-        toast.success("Successfully Logged In", { id: toastId });
+    try {
+      await signIn(email, password);
+      // Don't navigate here - the useEffect will handle navigation when role is set
+      toast.success("Successfully Logged In", { id: toastId });
+    } catch (error) {
+      const errorCode = error.code;
+      const errorMessage = error.message;
 
-        // navigate after login
-        navigate(location?.state ? location.state : "/");
-      })
-      .catch((error) => {
-        const errorCode = error.code;
-        const errorMessage = error.message;
-
-        // validations
-        if (errorCode === "auth/invalid-login-credentials") {
-          toast.error("Invalid Login Credential", { id: toastId });
-        } else {
-          console.error(errorMessage);
-        }
-      });
+      // validations
+      if (errorCode === "auth/invalid-login-credentials") {
+        toast.error("Invalid Login Credential", { id: toastId });
+      } else {
+        toast.error(errorMessage, { id: toastId });
+        console.error(errorMessage);
+      }
+    }
     console.log("Email:", email);
     console.log("Password:", password);
   };

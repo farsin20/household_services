@@ -60,22 +60,37 @@ router.get("/workers", async (req, res) => {
 
 // ✅ GET /api/users/role?email=user@example.com — get user role
 router.get("/role", async (req, res) => {
+  console.log('Role request received:', req.query);
   const email = req.query.email;
 
   if (!email) {
+    console.log('No email provided in query');
     return res.status(400).json({ success: false, error: "Email is required" });
   }
 
   try {
     const db = getDB();
     const usersCollection = db.collection("users");
+    console.log('Searching for user with email:', email);
     const user = await usersCollection.findOne({ email });
 
     if (!user) {
-      return res.status(404).json({ success: false, error: "User not found" });
+      console.log('User not found, creating new user with customer role');
+      // Create a new user with default role if not found
+      const newUser = {
+        email,
+        role: 'customer',
+        userType: 'customer'
+      };
+      await usersCollection.insertOne(newUser);
+      return res.json({ success: true, role: 'customer' });
     }
 
-    res.json({ success: true, role: user.userType || "customer" }); // default to 'customer'
+    console.log('User found:', user);
+    // Return the role (check both role and userType fields)
+    const userRole = user.role || user.userType || 'customer';
+    console.log('Returning role:', userRole);
+    res.json({ success: true, role: userRole });
   } catch (error) {
     console.error("Error fetching user role:", error);
     res.status(500).json({ success: false, error: "Failed to fetch role" });

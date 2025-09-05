@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../Providers/AuthProvider';
 
-const RequestsList = ({userEmail}) => {
+const MyRequests = ({userEmail}) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -125,7 +125,7 @@ const CustomerDashboard = () => {
       </div>
 
       <div className="bg-transparent shadow-xl rounded p-6">
-        {activeTab === 'requests' && <RequestsList userEmail={userEmail} />}
+        {activeTab === 'requests' && <MyRequests userEmail={userEmail} />}
         {activeTab === 'payment' && <MakePayment userEmail={userEmail} />}
         {activeTab === 'review' && <ReviewService userEmail={userEmail} />}
       </div>

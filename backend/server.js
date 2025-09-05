@@ -11,8 +11,18 @@ const requestRoutes = require("./Routes/request.js");
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(cors());
+// Enable CORS with specific options
+app.use(cors({
+  origin: 'http://localhost:5173', // Vite's default port
+  credentials: true
+}));
 app.use(express.json());
+
+// Debug middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
 
 // Routes
 app.use("/api/users", userRoutes);
