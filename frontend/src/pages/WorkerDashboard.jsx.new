@@ -1,0 +1,172 @@
+import React, { useState, useEffect } from "react";
+import { AuthContext } from "../Providers/AuthProvider";
+import { useNavigate } from "react-router-dom";
+
+const WorkerDashboard = () => {
+  const [activeTab, setActiveTab] = useState("jobs");
+  const { user, role } = React.useContext(AuthContext);
+  const navigate = useNavigate();
+  const workerEmail = user?.email;
+
+  useEffect(() => {
+    if (!user || role !== "worker") {
+      navigate("/login");
+    }
+  }, [user, role, navigate]);
+
+  return (
+    <div className="min-h-screen bg-gray-700 p-6">
+      <h1 className="text-3xl font-bold text-center mb-6 text-emerald-500">
+        Worker Dashboard
+      </h1>
+
+      <div className="flex justify-center mb-4 space-x-4 text-emerald-500">
+        <button
+          onClick={() => setActiveTab("jobs")}
+          className={`btn-tab bg-white rounded p-4 ${activeTab === "jobs" ? "ring-2 ring-emerald-500" : ""}`}
+        >
+          My Jobs
+        </button>
+        <button
+          onClick={() => setActiveTab("complete")}
+          className={`btn-tab bg-white rounded p-4 ${activeTab === "complete" ? "ring-2 ring-emerald-500" : ""}`}
+        >
+          Mark Complete
+        </button>
+        <button
+          onClick={() => setActiveTab("payments")}
+          className={`btn-tab bg-white rounded p-4 ${activeTab === "payments" ? "ring-2 ring-emerald-500" : ""}`}
+        >
+          Payment History
+        </button>
+        <button
+          onClick={() => setActiveTab("reviews")}
+          className={`btn-tab bg-white rounded p-4 ${activeTab === "reviews" ? "ring-2 ring-emerald-500" : ""}`}
+        >
+          Customer Reviews
+        </button>
+      </div>
+
+      <div className="bg-transparent shadow-xl rounded p-6">
+        {activeTab === "jobs" && <MyJobs workerEmail={workerEmail} />}
+        {activeTab === "complete" && <MarkComplete workerEmail={workerEmail} />}
+        {activeTab === "payments" && <PaymentHistory workerEmail={workerEmail} />}
+        {activeTab === "reviews" && <WorkerReviews workerEmail={workerEmail} />}
+      </div>
+    </div>
+  );
+};
+
+// Show all jobs assigned to worker
+const MyJobs = ({ workerEmail }) => {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/requests/worker/${workerEmail}`
+        );
+        const data = await res.json();
+        if (data.success) {
+          setJobs(data.jobs || []);
+        }
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (workerEmail) {
+      fetchJobs();
+    }
+  }, [workerEmail]);
+
+  if (loading) return <p className="text-white">Loading jobs...</p>;
+
+  return (
+    <div>
+      <h2 className="text-xl font-semibold mb-4 text-emerald-400">
+        Your Assigned Jobs
+      </h2>
+      <div className="grid gap-4">
+        {jobs.length > 0 ? (
+          jobs.map((job) => (
+            <div key={job._id} className="bg-white p-4 rounded-lg shadow-md">
+              <div className="flex justify-between items-start mb-2">
+                <span className="text-lg font-semibold text-emerald-600">
+                  Job ID: {job.jobId}
+                </span>
+                <span
+                  className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    job.status === "completed"
+                      ? "bg-green-100 text-green-800"
+                      : job.status === "in-progress"
+                      ? "bg-blue-100 text-blue-800"
+                      : "bg-yellow-100 text-yellow-800"
+                  }`}
+                >
+                  {job.status}
+                </span>
+              </div>
+              <div className="space-y-2">
+                <p className="text-gray-700">
+                  <span className="font-medium">Service Type:</span> {job.serviceType}
+                </p>
+                <p className="text-gray-700">
+                  <span className="font-medium">Customer:</span> {job.name}
+                </p>
+                <p className="text-gray-700">
+                  <span className="font-medium">Address:</span> {job.address}
+                </p>
+                {job.preferredDate && (
+                  <p className="text-gray-700">
+                    <span className="font-medium">Preferred Date:</span>{" "}
+                    {new Date(job.preferredDate).toLocaleDateString()}
+                  </p>
+                )}
+                {job.description && (
+                  <p className="text-gray-700">
+                    <span className="font-medium">Description:</span> {job.description}
+                  </p>
+                )}
+                {job.phone && (
+                  <p className="text-gray-700">
+                    <span className="font-medium">Contact:</span> {job.phone}
+                  </p>
+                )}
+                <p className="text-sm text-gray-500">
+                  Assigned on: {new Date(job.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-white text-center">No jobs assigned yet.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const MarkComplete = ({ workerEmail }) => {
+  return (
+    <div className="text-emerald-400">Mark Complete feature coming soon...</div>
+  );
+};
+
+const PaymentHistory = ({ workerEmail }) => {
+  return (
+    <div className="text-emerald-400">Payment History feature coming soon...</div>
+  );
+};
+
+const WorkerReviews = ({ workerEmail }) => {
+  return (
+    <div className="text-emerald-400">Reviews feature coming soon...</div>
+  );
+};
+
+export default WorkerDashboard;

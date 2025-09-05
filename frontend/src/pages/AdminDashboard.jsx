@@ -140,13 +140,34 @@ const AdminDashboard = () => {
         {/* Payment Status Section */}
         <div className="bg-transparent rounded-lg shadow-md p-5 text-emerald-400">
           <h2 className="text-xl font-semibold mb-4">Payment Status</h2>
-          <ul className="space-y-2">
-            <li className="p-3 border rounded-md">
-              John Doe - <span className="text-green-600">Paid</span>
-            </li>
-            <li className="p-3 border rounded-md">
-              Jane Smith - <span className="text-red-600">Pending</span>
-            </li>
+          <ul className="space-y-2 max-h-[400px] overflow-y-auto">
+            {requests
+              .filter(req => req.status === "completed")
+              .map((req) => (
+                <li key={req._id} className="p-3 border rounded-md bg-white text-black">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="font-medium">{req.name}</span>
+                      <p className="text-sm text-gray-600">{req.serviceType}</p>
+                    </div>
+                    <div>
+                      {req.paymentStatus === "paid" ? (
+                        <span className="text-green-600 font-semibold">Paid</span>
+                      ) : (
+                        <span className="text-red-600 font-semibold">Pending</span>
+                      )}
+                      {req.paymentDate && (
+                        <p className="text-xs text-gray-500">
+                          {new Date(req.paymentDate).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            {requests.filter(req => req.status === "completed").length === 0 && (
+              <li className="text-sm text-gray-400">No completed services found.</li>
+            )}
           </ul>
         </div>
 

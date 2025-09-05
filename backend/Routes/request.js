@@ -24,6 +24,25 @@ router.get("/:email", async (req, res) => {
   }
 });
 
+// GET /api/requests/worker/:email/completed - Get worker's completed requests
+router.get("/worker/:email/completed", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const db = getDB();
+    const requestsCollection = db.collection("serviceRequests");
+    
+    const jobs = await requestsCollection.find({
+      assignedWorker: email,
+      status: "completed"
+    }).sort({ completedAt: -1 }).toArray();
+    
+    res.json({ success: true, jobs });
+  } catch (error) {
+    console.error("Error fetching worker's completed jobs:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch completed jobs" });
+  }
+});
+
 // GET /api/requests/completed/:email - Get customer's completed requests
 router.get("/completed/:email", async (req, res) => {
   try {
@@ -44,31 +63,131 @@ router.get("/completed/:email", async (req, res) => {
 });
 
 // POST /api/requests - Save a new service request
+// PUT /api/requests/complete - Mark a job as complete
+router.put("/complete", async (req, res) => {
+  try {
+    const { jobId, workerEmail, completionNotes, completedAt } = req.body;
+    console.log("📩 Incoming PUT /api/requests/complete");
+    console.log("Request body:", req.body);
+
+    if (!jobId || !workerEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "Job ID and worker email are required"
+      });
+    }
+
+    const db = getDB();
+    const requestsCollection = db.collection("serviceRequests");
+
+    // Find and update the request using the jobId field
+    const request = await requestsCollection.findOne({
+      jobId: jobId
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        error: "Job not found"
+      });
+    }
+
+    // Verify that this job belongs to the worker
+    if (request.assignedWorker !== workerEmail) {
+      return res.status(403).json({
+        success: false,
+        error: "You are not authorized to complete this job"
+      });
+    }
+
+    // Update the request status
+    const result = await requestsCollection.updateOne(
+      { jobId: jobId },
+      {
+        $set: {
+          status: "completed",
+          completionNotes,
+          completedAt,
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(500).json({
+        success: false,
+        error: "Failed to update job status"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Job marked as completed successfully"
+    });
+
+  } catch (error) {
+    console.error("Error completing job:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
+
 router.post("/", async (req, res) => {
   try {
     console.log("📩 Incoming POST /api/requests");
     console.log("Request body:", req.body);
 
+    if (!req.body.customerEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "Customer email is required"
+      });
+    }
+
     const db = getDB();
     const requestsCollection = db.collection("serviceRequests");
 
-    // Add default status = "pending"
-    const newRequest = {
+    // Generate a date-based job ID
+    const date = new Date();
+    const dateString = date.getFullYear().toString() +
+                      (date.getMonth() + 1).toString().padStart(2, '0') +
+                      date.getDate().toString().padStart(2, '0');
+    
+    // Get the latest job ID for today
+    const latestJob = await requestsCollection
+      .find({ jobId: new RegExp(`HSJ-${dateString}-`) })
+      .sort({ jobId: -1 })
+      .limit(1)
+      .toArray();
+
+    let sequence = 1;
+    if (latestJob.length > 0) {
+      const lastSequence = parseInt(latestJob[0].jobId.split('-')[2]);
+      sequence = lastSequence + 1;
+    }
+
+    // Create the new request object with a generated job ID
+    const requestData = {
       ...req.body,
-      status: "pending", // default status
-      createdAt: new Date(), // optional timestamp
+      jobId: `HSJ-${dateString}-${sequence.toString().padStart(4, '0')}`,
+      status: "pending",
+      createdAt: date,
+      updatedAt: date
     };
 
-    console.log("📝 Inserting new request:", newRequest);
+    console.log("📝 Inserting new request:", requestData);
 
-    const result = await requestsCollection.insertOne(newRequest);
+    const result = await requestsCollection.insertOne(requestData);
 
     console.log("✅ Insert successful, ID:", result.insertedId);
 
     res.status(201).json({
       success: true,
       message: "Service request submitted successfully",
-      insertedId: result.insertedId,
+      jobId: requestData.jobId,
+      request: requestData
     });
   } catch (error) {
     console.error("❌ Error saving service request:", error);
@@ -93,6 +212,89 @@ router.get("/", async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching requests:", error);
     res.status(500).json({ success: false, error: "Failed to fetch requests" });
+  }
+});
+
+// PUT /api/requests/updateAmount - Update payment amount
+router.put("/updateAmount", async (req, res) => {
+  try {
+    const { requestId, amount } = req.body;
+    console.log("📩 Incoming PUT /api/requests/updateAmount", { requestId, amount });
+
+    const db = getDB();
+    const requestsCollection = db.collection("serviceRequests");
+
+    const result = await requestsCollection.updateOne(
+      { _id: new ObjectId(requestId) },
+      {
+        $set: {
+          amount: parseFloat(amount),
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      console.log("❌ Request not found:", requestId);
+      return res.status(404).json({
+        success: false,
+        error: "Request not found"
+      });
+    }
+
+    console.log("✅ Amount updated successfully");
+    res.json({
+      success: true,
+      message: "Amount updated successfully"
+    });
+  } catch (error) {
+    console.error("❌ Error updating amount:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update amount"
+    });
+  }
+});
+
+// PUT /api/requests/payment - Update payment status
+router.put("/payment", async (req, res) => {
+  try {
+    const { requestId, paymentStatus, paymentDate } = req.body;
+    console.log("📩 Incoming PUT /api/requests/payment", { requestId, paymentStatus, paymentDate });
+
+    const db = getDB();
+    const requestsCollection = db.collection("serviceRequests");
+
+    const result = await requestsCollection.updateOne(
+      { _id: new ObjectId(requestId) },
+      {
+        $set: {
+          paymentStatus,
+          paymentDate,
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      console.log("❌ Request not found:", requestId);
+      return res.status(404).json({
+        success: false,
+        error: "Request not found"
+      });
+    }
+
+    console.log("✅ Payment status updated successfully");
+    res.json({
+      success: true,
+      message: "Payment status updated successfully"
+    });
+  } catch (error) {
+    console.error("❌ Error updating payment status:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update payment status"
+    });
   }
 });
 

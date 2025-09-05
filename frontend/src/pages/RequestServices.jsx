@@ -1,16 +1,28 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import React, { useState, useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../Providers/AuthProvider";
+import { toast } from "react-hot-toast";
+
+const generateJobId = () => {
+  // Generate a random 6-digit number
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
 
 const RequestService = () => {
-  const Navigate = useNavigate();
+  const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
+    name: user?.displayName || "",
+    email: user?.email || "",
     phone: "",
     address: "",
     serviceType: "",
     preferredDate: "",
     description: "",
+    jobId: generateJobId(),
+    status: "pending",
+    customerEmail: user?.email || "",
+    createdAt: new Date().toISOString(),
   });
 
   const handleChange = (e) => {
@@ -18,38 +30,60 @@ const RequestService = () => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  try {
-    const response = await fetch("http://localhost:5000/api/requests", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      alert("Service request submitted successfully!");
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        address: "",
-        serviceType: "",
-        preferredDate: "",
-        description: "",
-      });
-    } else {
-      alert("Failed to submit service request.");
+    if (!user) {
+      toast.error("Please login first to request a service");
+      navigate("/login");
+      return;
     }
-  } catch (error) {
-    console.error("Error submitting request:", error);
-    alert("Something went wrong. Please try again.");
-  }
-};
+
+    const toastId = toast.loading("Submitting service request...");
+
+    try {
+      const response = await fetch("http://localhost:5000/api/requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(`Service request submitted successfully! Your Job ID is: ${formData.jobId}`, {
+          id: toastId,
+          duration: 5000,
+        });
+        
+        // Reset form with a new job ID but keep user info
+        setFormData({
+          name: user?.displayName || "",
+          email: user?.email || "",
+          phone: "",
+          address: "",
+          serviceType: "",
+          preferredDate: "",
+          description: "",
+          jobId: generateJobId(),
+          status: "pending",
+          customerEmail: user?.email || "",
+          createdAt: new Date().toISOString(),
+        });
+        
+        // Navigate to customer dashboard after short delay
+        setTimeout(() => {
+          navigate("/customer-dashboard");
+        }, 2000);
+      } else {
+        toast.error(data.error || "Failed to submit service request", { id: toastId });
+      }
+    } catch (error) {
+      console.error("Error submitting request:", error);
+      toast.error("Something went wrong. Please try again.", { id: toastId });
+    }
+  };
 
 
   return (
