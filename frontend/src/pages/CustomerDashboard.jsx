@@ -316,9 +316,154 @@ const MakePayment = ({userEmail}) => {
 };
 
 const ReviewService = ({userEmail}) => {
+  const [formData, setFormData] = useState({
+    jobId: "",
+    rating: "5",
+    reviewText: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [completedJobs, setCompletedJobs] = useState([]);
+
+  useEffect(() => {
+    // Fetch completed jobs for the customer
+    const fetchCompletedJobs = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/requests/completed/${userEmail}`);
+        const data = await res.json();
+        if (data.success) {
+          setCompletedJobs(data.requests);
+        }
+      } catch (error) {
+        console.error('Error fetching completed jobs:', error);
+      }
+    };
+
+    if (userEmail) {
+      fetchCompletedJobs();
+    }
+  }, [userEmail]);
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          customerEmail: userEmail,
+          submittedAt: new Date().toISOString()
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('Review submitted successfully!');
+        setFormData({
+          jobId: "",
+          rating: "5",
+          reviewText: "",
+        });
+      } else {
+        setError(data.error || 'Failed to submit review');
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      setError('Failed to submit review. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="text-emerald-400">
-      Review feature coming soon...
+    <div className="max-w-2xl mx-auto">
+      <h3 className="text-xl font-semibold mb-4 text-emerald-400">Review Service</h3>
+      
+      {error && (
+        <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
+        <div className="mb-4">
+          <label className="block text-gray-700 font-medium mb-2">
+            Select Job
+          </label>
+          <select
+            name="jobId"
+            value={formData.jobId}
+            onChange={handleChange}
+            required
+            className="w-full text-black px-4 py-2 border rounded-md focus:ring focus:ring-emerald-500"
+          >
+            <option value="">Select a completed job</option>
+            {completedJobs.map((job) => (
+              <option key={job._id} value={job.jobId}>
+                {job.jobId} - {job.serviceType} ({new Date(job.completedAt).toLocaleDateString()})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-gray-700 font-medium mb-2">
+            Rating
+          </label>
+          <select
+            name="rating"
+            value={formData.rating}
+            onChange={handleChange}
+            required
+            className="w-full text-black px-4 py-2 border rounded-md focus:ring focus:ring-emerald-500"
+          >
+            <option value="5">5 - Excellent</option>
+            <option value="4">4 - Good</option>
+            <option value="3">3 - Average</option>
+            <option value="2">2 - Poor</option>
+            <option value="1">1 - Very Poor</option>
+          </select>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-gray-700 font-medium mb-2">
+            Your Review
+          </label>
+          <textarea
+            name="reviewText"
+            value={formData.reviewText}
+            onChange={handleChange}
+            required
+            rows="4"
+            className="w-full text-black px-4 py-2 border rounded-md focus:ring focus:ring-emerald-500"
+            placeholder="Please share your experience with the service..."
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className={`w-full bg-emerald-600 text-white py-2 rounded-md hover:bg-emerald-700 transition ${
+            loading ? "opacity-50 cursor-not-allowed" : ""
+          }`}
+        >
+          {loading ? "Submitting..." : "Submit Review"}
+        </button>
+      </form>
     </div>
   );
 };

@@ -9,6 +9,8 @@ const WorkerDashboard = () => {
   const [completionNotes, setCompletionNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [completedJobs, setCompletedJobs] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [showReviews, setShowReviews] = useState(false);
   const { user, role } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -18,16 +20,18 @@ const WorkerDashboard = () => {
       return;
     }
 
-    const fetchJobs = async () => {
+    const fetchData = async () => {
       try {
-        const [activeRes, completedRes] = await Promise.all([
+        const [activeRes, completedRes, reviewsRes] = await Promise.all([
           fetch(`http://localhost:5000/api/requests/worker/${user.email}`),
-          fetch(`http://localhost:5000/api/requests/worker/${user.email}/completed`)
+          fetch(`http://localhost:5000/api/requests/worker/${user.email}/completed`),
+          fetch(`http://localhost:5000/api/reviews/worker/${user.email}`)
         ]);
 
-        const [activeData, completedData] = await Promise.all([
+        const [activeData, completedData, reviewsData] = await Promise.all([
           activeRes.json(),
-          completedRes.json()
+          completedRes.json(),
+          reviewsRes.json()
         ]);
 
         if (activeData.success) {
@@ -36,14 +40,17 @@ const WorkerDashboard = () => {
         if (completedData.success) {
           setCompletedJobs(completedData.jobs || []);
         }
+        if (reviewsData.success) {
+          setReviews(reviewsData.reviews || []);
+        }
       } catch (error) {
-        console.error("Error fetching jobs:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchJobs();
+    fetchData();
   }, [user, role, navigate]);
 
   if (loading) {
@@ -133,6 +140,55 @@ const WorkerDashboard = () => {
       </h1>
 
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Reviews Toggle Button */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => setShowReviews(!showReviews)}
+            className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 transition"
+          >
+            {showReviews ? "Hide Reviews" : `Show Reviews (${reviews.length})`}
+          </button>
+        </div>
+
+        {/* Reviews Section */}
+        {showReviews && (
+          <div className="bg-white rounded-lg shadow-xl p-6">
+            <h2 className="text-xl font-semibold mb-4 text-emerald-600">
+              Customer Reviews
+            </h2>
+            <div className="space-y-4">
+              {reviews.length > 0 ? (
+                reviews.map((review) => (
+                  <div
+                    key={review._id}
+                    className="bg-gray-50 p-4 rounded-lg border border-gray-200"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-sm text-emerald-600 font-medium">
+                        Job ID: {review.jobId}
+                      </span>
+                      <div className="flex items-center">
+                        <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                          Rating: {review.rating}/5
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-gray-600">
+                      <p className="font-medium mb-1">{review.serviceType}</p>
+                      <p className="text-sm mb-2">{review.reviewText}</p>
+                      <div className="text-xs text-gray-400">
+                        Reviewed on: {new Date(review.submittedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500">No reviews yet.</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Job Completion Form */}
         <div className="bg-white rounded-lg shadow-xl p-6">
           <h2 className="text-xl font-semibold mb-4 text-emerald-600">

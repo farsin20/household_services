@@ -7,6 +7,7 @@ require("dotenv").config();
 const { connectDB } = require("./db");
 const userRoutes = require("./Routes/users.js"); 
 const requestRoutes = require("./Routes/request.js");
+const reviewRoutes = require("./Routes/reviews.js");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -27,6 +28,7 @@ app.use((req, res, next) => {
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/requests", requestRoutes);
+app.use("/api/reviews", reviewRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === "production") {
